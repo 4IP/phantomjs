@@ -315,30 +315,38 @@ function extractDownload(filePath) {
 function copyIntoPlace(extractedPath, targetPath) {
   console.log('Removing', targetPath)
   return kew.nfcall(fs.remove, targetPath).then(function () {
-    // Look for the extracted directory, so we can rename it.
     var files = fs.readdirSync(extractedPath)
+    console.log('Looking for phantomjs in:', files)
+    
+    // Look for version-named directory (standard phantomjs structure)
     for (var i = 0; i < files.length; i++) {
       var file = path.join(extractedPath, files[i])
-      if (fs.statSync(file).isDirectory() && file.indexOf(helper.version) != -1) {
-        console.log('Copying extracted folder', file, '->', targetPath)
+      if (fs.statSync(file).isDirectory() && file.indexOf('phantomjs-2.1.1') !== -1) {
+        console.log('Found version directory:', file)
         return kew.nfcall(fs.move, file, targetPath)
       }
     }
-
-    // For custom ARM64 builds, the directory structure might be different
-    // Look for the phantomjs binary directly
-    var phantomBinary = path.join(extractedPath, 'phantomjs')
     
-    if (fs.existsSync(phantomBinary)) {
-      console.log('Found phantomjs binary directly, creating bin structure...')
-      var binPath = path.join(targetPath, 'bin')
-      fs.mkdirsSync(binPath, '0777')
-      var targetBinary = path.join(binPath, 'phantomjs')
-      return kew.nfcall(fs.move, phantomBinary, targetBinary)
+    // Look for bin directory
+    var binDir = path.join(extractedPath, 'bin')
+    if (fs.existsSync(binDir)) {
+      console.log('Found bin directory')
+      var targetBin = path.join(targetPath, 'bin')
+      fs.mkdirsSync(targetBin, '0777')
+      return kew.nfcall(fs.move, binDir, targetBin)
     }
-
-    console.log('Could not find extracted file', files)
-    throw new Error('Could not find extracted file')
+    
+    // Look for phantomjs binary at root
+    var phantomBinary = path.join(extractedPath, 'phantomjs')
+    if (fs.existsSync(phantomBinary)) {
+      console.log('Found phantomjs binary at root')
+      var targetBin = path.join(targetPath, 'bin')
+      fs.mkdirsSync(targetBin, '0777')
+      return kew.nfcall(fs.move, phantomBinary, path.join(targetBin, 'phantomjs'))
+    }
+    
+    console.error('Could not find phantomjs in extracted files:', files)
+    throw new Error('PhantomJS binary not found in downloaded package')
   })
 }
 

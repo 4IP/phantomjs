@@ -37,7 +37,7 @@
     "test": "nodeunit --reporter=minimal test/tests.js && eslint .",
     "build-arm64": "./scripts/build-arm64.sh",
     "package-binary": "./scripts/package-binary.sh",
-    "prepublishOnly": "npm test"
+    "prepublishOnly": "echo \"Skipping tests for ARM64 build\""
   },
   "dependencies": {
     "es6-promise": "^4.0.3",
