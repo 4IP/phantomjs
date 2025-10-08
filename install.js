@@ -36,7 +36,7 @@ function getCustomDownloadUrl(platform, arch) {
   if (platform === 'linux' && arch === 'arm64') {
     return {
       url: 'https://github.com/4IP/phantomjs-prebuilt/releases/download/v2.1.16-arm64.1/phantomjs-linux-arm64.tar.bz2',
-      checksum: 'cef44d92f4b166544ba5102bf0734c157fbf00f91c6f4123519a6439c2bb83ff' // You need to compute this
+      checksum: '4726aca2536a0d4e35e6287a24f035028919125de8eface4b002a157eec4f285' // You need to compute this
     }
   }
   
