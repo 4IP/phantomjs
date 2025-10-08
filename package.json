@@ -1,14 +1,15 @@
 {
-  "name": "4IP/phantomjs-prebuilt-arm64",
+  "name": "@4ip/phantomjs-prebuilt-arm64",
   "version": "2.1.16-arm64.1",
   "keywords": [
     "phantomjs",
     "headless",
     "webkit",
     "arm64",
-    "aarch64"
+    "aarch64",
+    "linux"
   ],
-  "description": "Headless WebKit with JS API - Custom build with ARM64 support",
+  "description": "Headless WebKit with JS API - Custom build with ARM64 support for Linux only",
   "homepage": "https://github.com/4IP/phantomjs-prebuilt",
   "repository": {
     "type": "git",
@@ -21,16 +22,6 @@
     "url": "http://pupius.co.uk"
   },
   "maintainers": [
-    {
-      "name": "Dan Pupius",
-      "email": "dan@medium.com",
-      "web": "http://pupius.co.uk/"
-    },
-    {
-      "name": "Nick Santos",
-      "email": "nick@medium.com",
-      "web": "http://nick-santos.com/"
-    },
     {
       "name": "Arief JR",
       "email": "arief666@hotmail.com",
@@ -68,14 +59,10 @@
     "node": ">=6.0.0"
   },
   "cpu": [
-    "x64",
-    "x86",
     "arm64"
   ],
   "os": [
-    "darwin",
-    "linux",
-    "win32"
+    "linux"
   ],
   "publishConfig": {
     "registry": "https://npm.pkg.github.com",

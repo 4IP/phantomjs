@@ -35,16 +35,8 @@ function getCustomDownloadUrl(platform, arch) {
   // Use custom ARM64 binary from GitHub releases
   if (platform === 'linux' && arch === 'arm64') {
     return {
-      url: 'https://github.com/4IP/phantomjs-builds/releases/download/v2.1.1/phantomjs-linux-arm64.tar.bz2',
-      checksum: 'YOUR_ARM64_CHECKSUM_HERE' // You need to compute this
-    }
-  }
-  
-  // Use custom ARM64 binary for macOS Apple Silicon
-  if (platform === 'darwin' && arch === 'arm64') {
-    return {
-      url: 'https://github.com/4IP/phantomjs-builds/releases/download/v2.1.1/phantomjs-darwin-arm64.tar.bz2',
-      checksum: 'YOUR_DARWIN_ARM64_CHECKSUM_HERE'
+      url: 'https://github.com/4IP/phantomjs-prebuilt/releases/download/v2.1.16-arm64.1/phantomjs-linux-arm64.tar.bz2',
+      checksum: 'f12eda2120f4d1a6b1589b708e8a19ba9dda6a124c9400485691f93f6e4b2696' // You need to compute this
     }
   }
   
@@ -90,9 +82,7 @@ kew.resolve(true)
     return copyIntoPlace(extractedPath, pkgPath)
   })
   .then(function () {
-    var location = getTargetPlatform() === 'win32' ?
-        path.join(pkgPath, 'bin', 'phantomjs.exe') :
-        path.join(pkgPath, 'bin' ,'phantomjs')
+    var location = path.join(pkgPath, 'bin' ,'phantomjs')
 
     try {
       // Ensure executable is executable by all users
@@ -337,15 +327,13 @@ function copyIntoPlace(extractedPath, targetPath) {
 
     // For custom ARM64 builds, the directory structure might be different
     // Look for the phantomjs binary directly
-    var phantomBinary = getTargetPlatform() === 'win32' ? 
-        path.join(extractedPath, 'phantomjs.exe') : 
-        path.join(extractedPath, 'phantomjs')
+    var phantomBinary = path.join(extractedPath, 'phantomjs')
     
     if (fs.existsSync(phantomBinary)) {
       console.log('Found phantomjs binary directly, creating bin structure...')
       var binPath = path.join(targetPath, 'bin')
       fs.mkdirsSync(binPath, '0777')
-      var targetBinary = path.join(binPath, getTargetPlatform() === 'win32' ? 'phantomjs.exe' : 'phantomjs')
+      var targetBinary = path.join(binPath, 'phantomjs')
       return kew.nfcall(fs.move, phantomBinary, targetBinary)
     }
 
@@ -441,6 +429,13 @@ function getDownloadUrl() {
 function downloadPhantomjs() {
   var platform = getTargetPlatform()
   var arch = getTargetArch()
+  
+  // Only support Linux ARM64
+  if (platform !== 'linux' || arch !== 'arm64') {
+    console.error(
+        'This package only supports Linux ARM64. Your platform: ' + platform + '/' + arch)
+    exit(1)
+  }
   
   // Check for custom ARM64 download first
   var customDownload = getCustomDownloadUrl(platform, arch)
