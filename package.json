@@ -1,16 +1,18 @@
 {
-  "name": "phantomjs-prebuilt",
-  "version": "2.1.16",
+  "name": "4IP/phantomjs-prebuilt-arm64",
+  "version": "2.1.16-arm64.1",
   "keywords": [
     "phantomjs",
     "headless",
-    "webkit"
+    "webkit",
+    "arm64",
+    "aarch64"
   ],
-  "description": "Headless WebKit with JS API",
-  "homepage": "https://github.com/Medium/phantomjs",
+  "description": "Headless WebKit with JS API - Custom build with ARM64 support",
+  "homepage": "https://github.com/4IP/phantomjs-prebuilt",
   "repository": {
     "type": "git",
-    "url": "git://github.com/Medium/phantomjs.git"
+    "url": "git://github.com/4IP/phantomjs-prebuilt.git"
   },
   "license": "Apache-2.0",
   "author": {
@@ -28,6 +30,11 @@
       "name": "Nick Santos",
       "email": "nick@medium.com",
       "web": "http://nick-santos.com/"
+    },
+    {
+      "name": "Arief JR",
+      "email": "arief666@hotmail.com",
+      "web": "https://www.tuxnoob.com"
     }
   ],
   "main": "lib/phantomjs",
@@ -36,7 +43,10 @@
   },
   "scripts": {
     "install": "node install.js",
-    "test": "nodeunit --reporter=minimal test/tests.js && eslint ."
+    "test": "nodeunit --reporter=minimal test/tests.js && eslint .",
+    "build-arm64": "./scripts/build-arm64.sh",
+    "package-binary": "./scripts/package-binary.sh",
+    "prepublishOnly": "npm test"
   },
   "dependencies": {
     "es6-promise": "^4.0.3",
@@ -53,5 +63,30 @@
     "eslint": "2.7.0",
     "nodeunit": "0.9.1",
     "webdriverio": "~4.2.3"
-  }
+  },
+  "engines": {
+    "node": ">=6.0.0"
+  },
+  "cpu": [
+    "x64",
+    "x86",
+    "arm64"
+  ],
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "install.js",
+    "LICENSE",
+    "README.md",
+    "scripts/"
+  ]
 }

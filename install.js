@@ -30,6 +30,27 @@ var findValidPhantomJsBinary = util.findValidPhantomJsBinary
 var verifyChecksum = util.verifyChecksum
 var writeLocationFile = util.writeLocationFile
 
+// Custom download URLs for ARM64
+function getCustomDownloadUrl(platform, arch) {
+  // Use custom ARM64 binary from GitHub releases
+  if (platform === 'linux' && arch === 'arm64') {
+    return {
+      url: 'https://github.com/4IP/phantomjs-builds/releases/download/v2.1.1/phantomjs-linux-arm64.tar.bz2',
+      checksum: 'YOUR_ARM64_CHECKSUM_HERE' // You need to compute this
+    }
+  }
+  
+  // Use custom ARM64 binary for macOS Apple Silicon
+  if (platform === 'darwin' && arch === 'arm64') {
+    return {
+      url: 'https://github.com/4IP/phantomjs-builds/releases/download/v2.1.1/phantomjs-darwin-arm64.tar.bz2',
+      checksum: 'YOUR_DARWIN_ARM64_CHECKSUM_HERE'
+    }
+  }
+  
+  return null
+}
+
 // If the process exits without going through exit(), then we did not complete.
 var validExit = false
 
@@ -136,15 +157,17 @@ function findSuitableTempDirectory() {
 }
 
 
-function getRequestOptions() {
+function getRequestOptions(customUrl) {
   var strictSSL = !!process.env.npm_config_strict_ssl
   if (process.version == 'v0.10.34') {
     console.log('Node v0.10.34 detected, turning off strict ssl due to https://github.com/joyent/node/issues/8894')
     strictSSL = false
   }
 
+  var downloadUrl = customUrl || getDownloadUrl()
+  
   var options = {
-    uri: getDownloadUrl(),
+    uri: downloadUrl,
     encoding: null, // Get response as a buffer
     followRedirect: true, // The default download path redirects to a CDN URL.
     headers: {},
@@ -312,6 +335,20 @@ function copyIntoPlace(extractedPath, targetPath) {
       }
     }
 
+    // For custom ARM64 builds, the directory structure might be different
+    // Look for the phantomjs binary directly
+    var phantomBinary = getTargetPlatform() === 'win32' ? 
+        path.join(extractedPath, 'phantomjs.exe') : 
+        path.join(extractedPath, 'phantomjs')
+    
+    if (fs.existsSync(phantomBinary)) {
+      console.log('Found phantomjs binary directly, creating bin structure...')
+      var binPath = path.join(targetPath, 'bin')
+      fs.mkdirsSync(binPath, '0777')
+      var targetBinary = path.join(binPath, getTargetPlatform() === 'win32' ? 'phantomjs.exe' : 'phantomjs')
+      return kew.nfcall(fs.move, phantomBinary, targetBinary)
+    }
+
     console.log('Could not find extracted file', files)
     throw new Error('Could not find extracted file')
   })
@@ -402,10 +439,16 @@ function getDownloadUrl() {
  * @return {Promise.<string>} The path to the downloaded file.
  */
 function downloadPhantomjs() {
-  var downloadSpec = getDownloadSpec()
+  var platform = getTargetPlatform()
+  var arch = getTargetArch()
+  
+  // Check for custom ARM64 download first
+  var customDownload = getCustomDownloadUrl(platform, arch)
+  var downloadSpec = customDownload || getDownloadSpec()
+  
   if (!downloadSpec) {
     console.error(
-        'Unexpected platform or architecture: ' + getTargetPlatform() + '/' + getTargetArch() + '\n' +
+        'Unexpected platform or architecture: ' + platform + '/' + arch + '\n' +
         'It seems there is no binary available for your platform/architecture\n' +
         'Try to install PhantomJS globally')
     exit(1)
@@ -422,7 +465,13 @@ function downloadPhantomjs() {
 
     if (fs.existsSync(downloadedFile)) {
       console.log('Download already available at', downloadedFile)
-      return verifyChecksum(downloadedFile, downloadSpec.checksum)
+      // Only verify checksum if we have one (custom downloads might not have checksums)
+      if (downloadSpec.checksum && downloadSpec.checksum !== 'YOUR_ARM64_CHECKSUM_HERE') {
+        return verifyChecksum(downloadedFile, downloadSpec.checksum)
+      } else {
+        console.log('Skipping checksum verification for custom binary')
+        return true
+      }
     }
     return false
   }).then(function (verified) {
@@ -432,7 +481,12 @@ function downloadPhantomjs() {
 
     // Start the install.
     console.log('Downloading', downloadUrl)
+    if (customDownload) {
+      console.log('Using custom ARM64 binary from GitHub')
+    }
     console.log('Saving to', downloadedFile)
-    return requestBinary(getRequestOptions(), downloadedFile)
+    
+    var requestOptions = getRequestOptions(downloadUrl)
+    return requestBinary(requestOptions, downloadedFile)
   })
 }

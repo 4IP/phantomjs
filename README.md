@@ -1,6 +1,8 @@
 phantomjs-prebuilt
 ==================
 
+**NOTE:** Because the old service has use phantomjs-prebuilt and it is not possible to change it from the code side. So i build from source for phantomjs that support for arm64 Linux.
+
 **WARNING:** This repository and NPM package are now deprecated since PhantomJS development had been suspended.
 
 An NPM installer for [PhantomJS](http://phantomjs.org/), headless webkit with JS API.
