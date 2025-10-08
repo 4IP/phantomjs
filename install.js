@@ -311,14 +311,29 @@ function extractDownload(filePath) {
   return deferred.promise
 }
 
+// Recursively search for a file named 'phantomjs' in a directory tree
+function findPhantomBinaryRecursive(dir) {
+  var files = fs.readdirSync(dir)
+  for (var i = 0; i < files.length; i++) {
+    var filePath = path.join(dir, files[i])
+    var stat = fs.statSync(filePath)
+    if (stat.isDirectory()) {
+      var result = findPhantomBinaryRecursive(filePath)
+      if (result) return result
+    } else if (files[i] === 'phantomjs' && stat.isFile()) {
+      return filePath
+    }
+  }
+  return null
+}
 
 function copyIntoPlace(extractedPath, targetPath) {
   console.log('Removing', targetPath)
   return kew.nfcall(fs.remove, targetPath).then(function () {
     var files = fs.readdirSync(extractedPath)
-    console.log('Looking for phantomjs in:', files)
-    
-    // Look for version-named directory (standard phantomjs structure)
+    console.log('Extracted files:', files)
+
+    // Try previous logic first...
     for (var i = 0; i < files.length; i++) {
       var file = path.join(extractedPath, files[i])
       if (fs.statSync(file).isDirectory() && file.indexOf('phantomjs-2.1.1') !== -1) {
@@ -326,26 +341,34 @@ function copyIntoPlace(extractedPath, targetPath) {
         return kew.nfcall(fs.move, file, targetPath)
       }
     }
-    
-    // Look for bin directory
-    var binDir = path.join(extractedPath, 'bin')
-    if (fs.existsSync(binDir)) {
-      console.log('Found bin directory')
-      var targetBin = path.join(targetPath, 'bin')
-      fs.mkdirsSync(targetBin, '0777')
-      return kew.nfcall(fs.move, binDir, targetBin)
+    for (var i = 0; i < files.length; i++) {
+      var file = path.join(extractedPath, files[i])
+      if (fs.statSync(file).isDirectory()) {
+        var potentialBinary = path.join(file, 'bin', 'phantomjs')
+        if (fs.existsSync(potentialBinary)) {
+          console.log('Found phantomjs in bin directory:', potentialBinary)
+          return kew.nfcall(fs.move, file, targetPath)
+        }
+      }
     }
-    
-    // Look for phantomjs binary at root
     var phantomBinary = path.join(extractedPath, 'phantomjs')
     if (fs.existsSync(phantomBinary)) {
       console.log('Found phantomjs binary at root')
-      var targetBin = path.join(targetPath, 'bin')
-      fs.mkdirsSync(targetBin, '0777')
-      return kew.nfcall(fs.move, phantomBinary, path.join(targetBin, 'phantomjs'))
+      var binPath = path.join(targetPath, 'bin')
+      fs.mkdirsSync(binPath, '0777')
+      return kew.nfcall(fs.move, phantomBinary, path.join(binPath, 'phantomjs'))
     }
-    
-    console.error('Could not find phantomjs in extracted files:', files)
+
+    // NEW: Recursively search for the binary
+    var foundBinary = findPhantomBinaryRecursive(extractedPath)
+    if (foundBinary) {
+      console.log('Found phantomjs binary recursively at', foundBinary)
+      var binPath = path.join(targetPath, 'bin')
+      fs.mkdirsSync(binPath, '0777')
+      return kew.nfcall(fs.move, foundBinary, path.join(binPath, 'phantomjs'))
+    }
+
+    console.error('Could not find phantomjs binary in:', files)
     throw new Error('PhantomJS binary not found in downloaded package')
   })
 }
@@ -432,64 +455,38 @@ function getDownloadUrl() {
 /**
  * Download phantomjs, reusing the existing copy on disk if available.
  * Exits immediately if there is no binary to download.
- * @return {Promise.<string>} The path to the downloaded file.
+ * @return {Promise.<string>}
  */
 function downloadPhantomjs() {
   var platform = getTargetPlatform()
   var arch = getTargetArch()
-  
-  // Only support Linux ARM64
-  if (platform !== 'linux' || arch !== 'arm64') {
-    console.error(
-        'This package only supports Linux ARM64. Your platform: ' + platform + '/' + arch)
-    exit(1)
-  }
-  
-  // Check for custom ARM64 download first
-  var customDownload = getCustomDownloadUrl(platform, arch)
-  var downloadSpec = customDownload || getDownloadSpec()
-  
-  if (!downloadSpec) {
-    console.error(
-        'Unexpected platform or architecture: ' + platform + '/' + arch + '\n' +
-        'It seems there is no binary available for your platform/architecture\n' +
-        'Try to install PhantomJS globally')
+
+  // Use custom download for ARM64
+  var customSpec = getCustomDownloadUrl(platform, arch)
+  var downloadSpec = customSpec || getDownloadSpec()
+
+  if (!downloadSpec || !downloadSpec.url) {
+    console.error('No download URL found, aborting install')
     exit(1)
   }
 
   var downloadUrl = downloadSpec.url
-  var downloadedFile
+  var filePath = path.join(findSuitableTempDirectory(), 'phantomjs.' + Date.now() + (downloadUrl.endsWith('.tar.bz2') ? '.tar.bz2' : '.zip'))
 
-  return kew.fcall(function () {
-    // Can't use a global version so start a download.
-    var tmpPath = findSuitableTempDirectory()
-    var fileName = downloadUrl.split('/').pop()
-    downloadedFile = path.join(tmpPath, fileName)
-
-    if (fs.existsSync(downloadedFile)) {
-      console.log('Download already available at', downloadedFile)
-      // Only verify checksum if we have one (custom downloads might not have checksums)
+  return requestBinary(getRequestOptions(downloadUrl), filePath)
+    .then(function (result) {
       if (downloadSpec.checksum && downloadSpec.checksum !== 'YOUR_ARM64_CHECKSUM_HERE') {
-        return verifyChecksum(downloadedFile, downloadSpec.checksum)
-      } else {
-        console.log('Skipping checksum verification for custom binary')
-        return true
+        return verifyChecksum(result, downloadSpec.checksum).then(function (ok) {
+          if (!ok) {
+            console.error('Checksum did not match for downloaded file')
+            exit(1)
+          }
+          return result
+        })
       }
-    }
-    return false
-  }).then(function (verified) {
-    if (verified) {
-      return downloadedFile
-    }
-
-    // Start the install.
-    console.log('Downloading', downloadUrl)
-    if (customDownload) {
-      console.log('Using custom ARM64 binary from GitHub')
-    }
-    console.log('Saving to', downloadedFile)
-    
-    var requestOptions = getRequestOptions(downloadUrl)
-    return requestBinary(requestOptions, downloadedFile)
-  })
+      return result
+    })
+    .then(function () {
+      return filePath
+    })
 }
